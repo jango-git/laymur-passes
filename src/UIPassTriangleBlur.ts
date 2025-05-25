@@ -128,7 +128,9 @@ export class UIPassTriangleBlur extends UIPass {
     material.uniforms.map.value = this.renderTarget.texture;
     material.uniforms.direction.value.set(1 / width, 0);
 
+    renderer.setClearColor(0x000000, 0);
     renderer.setRenderTarget(originalTarget);
+    renderer.clearColor();
     this.screen.render(renderer);
 
     this.needsUpdateInternal = false;
