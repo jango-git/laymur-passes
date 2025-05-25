@@ -112,22 +112,22 @@ export class UIPassTriangleBlur extends UIPass {
     const width = parameters.width + parameters.padding * 2;
     const height = parameters.height + parameters.padding * 2;
 
-    if (
-      this.renderTarget.width !== width ||
-      this.renderTarget.height !== height
-    ) {
-      this.renderTarget.setSize(width, height);
-    }
+    this.renderTarget.setSize(width, height);
 
-    const mat = this.screen.material;
+    const material = this.screen.material;
 
-    mat.uniforms.map.value = texture;
-    mat.uniforms.direction.value.set(0, 1 / height);
+    material.uniforms.map.value = texture;
+    material.uniforms.direction.value.set(0, 1 / height);
+
+    renderer.setClearColor(0x000000, 0);
     renderer.setRenderTarget(this.renderTarget);
+    renderer.clearColor();
+
     this.screen.render(renderer);
 
-    mat.uniforms.map.value = this.renderTarget.texture;
-    mat.uniforms.direction.value.set(1 / width, 0);
+    material.uniforms.map.value = this.renderTarget.texture;
+    material.uniforms.direction.value.set(1 / width, 0);
+
     renderer.setRenderTarget(originalTarget);
     this.screen.render(renderer);
 
