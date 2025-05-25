@@ -19,9 +19,9 @@ export class UIPassTriangleBlur extends UIPass {
   private readonly renderTarget: WebGLRenderTarget;
   private needsUpdateInternal = true;
 
-  constructor(maxBlur = 32) {
+  constructor(maxBlur = 32, padding = maxBlur) {
     super();
-    this.padding = maxBlur;
+    this.padding = padding;
 
     this.screen = new UIFullScreenQuad(
       new ShaderMaterial({
@@ -41,28 +41,26 @@ export class UIPassTriangleBlur extends UIPass {
             gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
           }
         `,
-        fragmentShader: /* glsl */ `
+        fragmentShader: `
           uniform sampler2D map;
           uniform float radius;
           uniform vec2 direction;
           varying vec2 vUv;
 
           void main() {
-            float r = radius;
+            float r = floor(radius);
+            float totalWeight = 1.0;
+            vec4 value = texture2D(map, vUv) * totalWeight;
 
-            float totalScale = 1.0 + r;
-            vec4 value = texture2D(map, vUv) * totalScale;
-
-            float x = 1.0;
-            while (x <= r) {
+            for (float x = 1.0; x <= r; x += 1.0) {
+              float weight = r + 1.0 - x;
               vec2 dudv = direction * x;
-              float scale = 1.0 + r - x;
-              value += scale * (texture2D(map, vUv - dudv) +
-                                texture2D(map, vUv + dudv));
-              x += 1.0;
+
+              totalWeight += 2.0 * weight;
+              value += weight * (texture2D(map, vUv - dudv) + texture2D(map, vUv + dudv));
             }
 
-            gl_FragColor = value / totalScale / totalScale;
+            gl_FragColor = value / totalWeight;
           }
         `,
         transparent: true,
