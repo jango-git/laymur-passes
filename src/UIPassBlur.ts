@@ -13,13 +13,94 @@ import {
   WebGLRenderTarget,
 } from "three";
 
-export class UIPassTriangleBlur extends UIPass {
+export enum UIBlurType {
+  BOX,
+  TRIANGLE,
+  GAUSSIAN,
+}
+
+const getFragmentShader = (blurType: UIBlurType): string => {
+  const common = `
+    uniform sampler2D map;
+    uniform float radius;
+    uniform vec2 direction;
+    varying vec2 vUv;
+  `;
+
+  const boxBlur = `
+    void main() {
+      float r = floor(radius);
+      float totalWeight = 1.0;
+      vec4 value = texture2D(map, vUv) * totalWeight;
+
+      for (float x = 1.0; x <= r; x += 1.0) {
+        float weight = 1.0;
+        vec2 dudv = direction * x;
+        totalWeight += 2.0 * weight;
+        value += weight * (texture2D(map, vUv - dudv) + texture2D(map, vUv + dudv));
+      }
+
+      gl_FragColor = value / totalWeight;
+    }
+  `;
+
+  const triangleBlur = `
+    void main() {
+      float r = floor(radius);
+      float totalWeight = 1.0;
+      vec4 value = texture2D(map, vUv) * totalWeight;
+
+      for (float x = 1.0; x <= r; x += 1.0) {
+        float weight = r + 1.0 - x;
+        vec2 dudv = direction * x;
+        totalWeight += 2.0 * weight;
+        value += weight * (texture2D(map, vUv - dudv) + texture2D(map, vUv + dudv));
+      }
+
+      gl_FragColor = value / totalWeight;
+    }
+  `;
+
+  const gaussianBlur = `
+    float gaussian(float x, float sigma) {
+      return exp(-(x * x) / (2.0 * sigma * sigma));
+    }
+
+    void main() {
+      float sigma = radius / 2.0;
+      float totalWeight = gaussian(0.0, sigma);
+      vec4 value = texture2D(map, vUv) * totalWeight;
+
+      for (float x = 1.0; x <= radius; x += 1.0) {
+        float weight = gaussian(x, sigma);
+        vec2 dudv = direction * x;
+        totalWeight += 2.0 * weight;
+        value += weight * (texture2D(map, vUv - dudv) + texture2D(map, vUv + dudv));
+      }
+
+      gl_FragColor = value / totalWeight;
+    }
+  `;
+
+  switch (blurType) {
+    case UIBlurType.BOX:
+      return common + boxBlur;
+    case UIBlurType.TRIANGLE:
+      return common + triangleBlur;
+    case UIBlurType.GAUSSIAN:
+      return common + gaussianBlur;
+    default:
+      return common + triangleBlur;
+  }
+};
+
+export class UIPassBlur extends UIPass {
   public readonly padding: number;
   private readonly screen: UIFullScreenQuad;
   private readonly renderTarget: WebGLRenderTarget;
   private needsUpdateInternal = true;
 
-  constructor(maxBlur = 32, padding = maxBlur) {
+  constructor(maxBlur = 32, blurType = UIBlurType.TRIANGLE, padding = maxBlur) {
     super();
     this.padding = padding;
 
@@ -41,28 +122,7 @@ export class UIPassTriangleBlur extends UIPass {
             gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
           }
         `,
-        fragmentShader: `
-          uniform sampler2D map;
-          uniform float radius;
-          uniform vec2 direction;
-          varying vec2 vUv;
-
-          void main() {
-            float r = floor(radius);
-            float totalWeight = 1.0;
-            vec4 value = texture2D(map, vUv) * totalWeight;
-
-            for (float x = 1.0; x <= r; x += 1.0) {
-              float weight = r + 1.0 - x;
-              vec2 dudv = direction * x;
-
-              totalWeight += 2.0 * weight;
-              value += weight * (texture2D(map, vUv - dudv) + texture2D(map, vUv + dudv));
-            }
-
-            gl_FragColor = value / totalWeight;
-          }
-        `,
+        fragmentShader: getFragmentShader(blurType),
         transparent: true,
       }),
     );
@@ -120,7 +180,6 @@ export class UIPassTriangleBlur extends UIPass {
     renderer.setClearColor(0x000000, 0);
     renderer.setRenderTarget(this.renderTarget);
     renderer.clearColor();
-
     this.screen.render(renderer);
 
     material.uniforms.map.value = this.renderTarget.texture;
