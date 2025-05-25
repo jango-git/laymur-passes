@@ -116,5 +116,6 @@ export class UIPassHSV extends UIPass {
     this.screen.material.uniforms.map.value = texture;
     this.screen.material.uniformsNeedUpdate = true;
     this.screen.render(renderer);
+    this.needsUpdateInternal = false;
   }
 }

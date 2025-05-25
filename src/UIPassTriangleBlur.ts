@@ -2,13 +2,13 @@ import type { UIPassRenderParameters } from "laymur";
 import { UIFullScreenQuad, UIPass } from "laymur";
 import type { Texture, WebGLRenderer } from "three";
 import {
-  HalfFloatType,
   LinearFilter,
   MathUtils,
   Matrix3,
   RGBAFormat,
   ShaderMaterial,
   UniformsUtils,
+  UnsignedByteType,
   Vector2,
   WebGLRenderTarget,
 } from "three";
@@ -19,7 +19,7 @@ export class UIPassTriangleBlur extends UIPass {
   private readonly renderTarget: WebGLRenderTarget;
   private needsUpdateInternal = true;
 
-  constructor(maxBlur = 40) {
+  constructor(maxBlur = 32) {
     super();
     this.padding = maxBlur;
 
@@ -49,18 +49,20 @@ export class UIPassTriangleBlur extends UIPass {
 
           void main() {
             float r = radius;
+
             float totalScale = 1.0 + r;
             vec4 value = texture2D(map, vUv) * totalScale;
 
-            for (float x = 1.0; x <= 100.0; x += 1.0) {
-              if (x > r) break;
-              vec2 offset = direction * x;
+            float x = 1.0;
+            while (x <= r) {
+              vec2 dudv = direction * x;
               float scale = 1.0 + r - x;
-              value += texture2D(map, vUv + offset) * scale;
-              value += texture2D(map, vUv - offset) * scale;
+              value += scale * (texture2D(map, vUv - dudv) +
+                                texture2D(map, vUv + dudv));
+              x += 1.0;
             }
 
-            gl_FragColor = value / (totalScale * totalScale);
+            gl_FragColor = value / totalScale / totalScale;
           }
         `,
         transparent: true,
@@ -71,7 +73,7 @@ export class UIPassTriangleBlur extends UIPass {
       format: RGBAFormat,
       minFilter: LinearFilter,
       magFilter: LinearFilter,
-      type: HalfFloatType,
+      type: UnsignedByteType,
       depthBuffer: false,
       stencilBuffer: false,
     });
@@ -128,5 +130,7 @@ export class UIPassTriangleBlur extends UIPass {
     mat.uniforms.direction.value.set(1 / width, 0);
     renderer.setRenderTarget(originalTarget);
     this.screen.render(renderer);
+
+    this.needsUpdateInternal = false;
   }
 }
