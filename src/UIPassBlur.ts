@@ -1,4 +1,4 @@
-import type { UIPassRenderParameters } from "laymur";
+import type { UIPassRenderOptions } from "laymur";
 import { UIFullScreenQuad, UIPass } from "laymur";
 import type { Texture, WebGLRenderer } from "three";
 import {
@@ -94,13 +94,19 @@ const getFragmentShader = (blurType: UIBlurType): string => {
   }
 };
 
+const DEFAULT_MAX_BLUR = 32;
+
 export class UIPassBlur extends UIPass {
   public readonly padding: number;
   private readonly screen: UIFullScreenQuad;
   private readonly renderTarget: WebGLRenderTarget;
   private needsUpdateInternal = true;
 
-  constructor(maxBlur = 32, blurType = UIBlurType.TRIANGLE, padding = maxBlur) {
+  constructor(
+    maxBlur = DEFAULT_MAX_BLUR,
+    blurType = UIBlurType.TRIANGLE,
+    padding = maxBlur,
+  ) {
     super();
     this.padding = padding;
 
@@ -155,6 +161,10 @@ export class UIPassBlur extends UIPass {
     this.needsUpdateInternal = true;
   }
 
+  public markNeedsUpdateForce(): void {
+    this.needsUpdateInternal = true;
+  }
+
   public destroy(): void {
     this.screen.material.dispose();
     this.renderTarget.dispose();
@@ -163,12 +173,12 @@ export class UIPassBlur extends UIPass {
   public render(
     renderer: WebGLRenderer,
     texture: Texture,
-    parameters: UIPassRenderParameters,
+    options: UIPassRenderOptions,
   ): void {
     const originalTarget = renderer.getRenderTarget();
 
-    const width = parameters.width + parameters.padding * 2;
-    const height = parameters.height + parameters.padding * 2;
+    const width = options.width + options.padding * 2;
+    const height = options.height + options.padding * 2;
 
     this.renderTarget.setSize(width, height);
 

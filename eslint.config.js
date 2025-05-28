@@ -29,7 +29,7 @@ export default [
       "no-magic-numbers": [
         "warn",
         {
-          ignore: [0, 1, -1],
+          ignore: [0, 1, -1, 2],
           ignoreArrayIndexes: true,
           enforceConst: true,
           detectObjects: true,

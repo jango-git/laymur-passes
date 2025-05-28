@@ -108,6 +108,10 @@ export class UIPassHSV extends UIPass {
     this.needsUpdateInternal = true;
   }
 
+  public markNeedsUpdateForce(): void {
+    this.needsUpdateInternal = true;
+  }
+
   public destroy(): void {
     this.screen.material.dispose();
   }
