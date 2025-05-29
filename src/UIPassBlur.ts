@@ -4,7 +4,7 @@ import type { Texture, WebGLRenderer } from "three";
 import {
   LinearFilter,
   MathUtils,
-  Matrix3,
+  NoBlending,
   RGBAFormat,
   ShaderMaterial,
   UniformsUtils,
@@ -117,19 +117,22 @@ export class UIPassBlur extends UIPass {
             map: { value: null },
             radius: { value: 0 },
             direction: { value: new Vector2(1, 0) },
-            uvTransform: { value: new Matrix3() },
           },
         ]),
         vertexShader: /* glsl */ `
-          uniform mat3 uvTransform;
           varying vec2 vUv;
           void main() {
-            vUv = (uvTransform * vec3(uv, 1)).xy;
+            vUv = uv;
             gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
           }
         `,
         fragmentShader: getFragmentShader(blurType),
         transparent: true,
+        blending: NoBlending,
+        depthWrite: false,
+        depthTest: false,
+        lights: false,
+        fog: false,
       }),
     );
 
@@ -161,7 +164,7 @@ export class UIPassBlur extends UIPass {
     this.needsUpdateInternal = true;
   }
 
-  public markNeedsUpdateForce(): void {
+  public requestUpdate(): void {
     this.needsUpdateInternal = true;
   }
 
@@ -188,16 +191,16 @@ export class UIPassBlur extends UIPass {
     material.uniforms.direction.value.set(0, 1 / height);
 
     renderer.setClearColor(0x000000, 0);
+
     renderer.setRenderTarget(this.renderTarget);
-    renderer.clearColor();
+    renderer.clear(true, false, false);
     this.screen.render(renderer);
 
     material.uniforms.map.value = this.renderTarget.texture;
     material.uniforms.direction.value.set(1 / width, 0);
 
-    renderer.setClearColor(0x000000, 0);
     renderer.setRenderTarget(originalTarget);
-    renderer.clearColor();
+    renderer.clear(true, false, false);
     this.screen.render(renderer);
 
     this.needsUpdateInternal = false;

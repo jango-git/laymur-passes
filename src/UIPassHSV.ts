@@ -1,6 +1,6 @@
 import { UIFullScreenQuad, UIPass } from "laymur";
 import {
-  Matrix3,
+  NoBlending,
   ShaderMaterial,
   UniformsUtils,
   type Texture,
@@ -22,14 +22,12 @@ export class UIPassHSV extends UIPass {
             hue: { value: 0.0 },
             saturation: { value: 1.0 },
             value: { value: 1.0 },
-            uvTransform: { value: new Matrix3() },
           },
         ]),
         vertexShader: /* glsl */ `
-        uniform mat3 uvTransform;
         varying vec2 vUv;
         void main() {
-          vUv = (uvTransform * vec3(uv, 1)).xy;
+          vUv = uv;
           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
       `,
@@ -68,8 +66,11 @@ export class UIPassHSV extends UIPass {
         }
       `,
         transparent: true,
-        fog: false,
+        blending: NoBlending,
+        depthWrite: false,
+        depthTest: false,
         lights: false,
+        fog: false,
       }),
     );
   }
@@ -108,7 +109,7 @@ export class UIPassHSV extends UIPass {
     this.needsUpdateInternal = true;
   }
 
-  public markNeedsUpdateForce(): void {
+  public requestUpdate(): void {
     this.needsUpdateInternal = true;
   }
 
