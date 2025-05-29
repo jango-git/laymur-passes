@@ -9,29 +9,31 @@ import {
 
 export class UIPassHSV extends UIPass {
   public readonly padding: number = 0;
+
+  private readonly screen = new UIFullScreenQuad();
+  private readonly material: ShaderMaterial;
   private needsUpdateInternal = true;
-  private readonly screen: UIFullScreenQuad;
+  private isValuableInternal = false;
 
   constructor() {
     super();
-    this.screen = new UIFullScreenQuad(
-      new ShaderMaterial({
-        uniforms: UniformsUtils.merge([
-          {
-            map: { value: null },
-            hue: { value: 0.0 },
-            saturation: { value: 1.0 },
-            value: { value: 1.0 },
-          },
-        ]),
-        vertexShader: /* glsl */ `
+    this.material = new ShaderMaterial({
+      uniforms: UniformsUtils.merge([
+        {
+          map: { value: null },
+          hue: { value: 0.0 },
+          saturation: { value: 1.0 },
+          value: { value: 1.0 },
+        },
+      ]),
+      vertexShader: /* glsl */ `
         varying vec2 vUv;
         void main() {
           vUv = uv;
           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
       `,
-        fragmentShader: /* glsl */ `
+      fragmentShader: /* glsl */ `
         uniform sampler2D map;
         uniform float hue;
         uniform float saturation;
@@ -65,48 +67,60 @@ export class UIPassHSV extends UIPass {
           gl_FragColor = vec4(rgb, textureColor.a);
         }
       `,
-        transparent: true,
-        blending: NoBlending,
-        depthWrite: false,
-        depthTest: false,
-        lights: false,
-        fog: false,
-      }),
-    );
+      transparent: true,
+      blending: NoBlending,
+      depthWrite: false,
+      depthTest: false,
+      lights: false,
+      fog: false,
+    });
   }
 
   public get needsUpdate(): boolean {
     return this.needsUpdateInternal;
   }
 
+  public get isValuable(): boolean {
+    return this.isValuableInternal;
+  }
+
   public get hue(): number {
-    return this.screen.material.uniforms.hue.value;
+    return this.material.uniforms.hue.value;
   }
 
   public get saturation(): number {
-    return this.screen.material.uniforms.saturation.value;
+    return this.material.uniforms.saturation.value;
   }
 
   public get value(): number {
-    return this.screen.material.uniforms.value.value;
+    return this.material.uniforms.value.value;
   }
 
   public set hue(value: number) {
-    this.screen.material.uniforms.hue.value = value;
-    this.screen.material.uniformsNeedUpdate = true;
-    this.needsUpdateInternal = true;
+    if (value !== this.material.uniforms.hue.value) {
+      this.material.uniforms.hue.value = value;
+      this.material.uniformsNeedUpdate = true;
+      this.needsUpdateInternal = true;
+      this.updateIsValuableState();
+    }
   }
 
   public set saturation(value: number) {
-    this.screen.material.uniforms.saturation.value = value;
-    this.screen.material.uniformsNeedUpdate = true;
-    this.needsUpdateInternal = true;
+    if (value !== this.material.uniforms.hue.value) {
+      this.material.uniforms.saturation.value = value;
+      this.material.uniformsNeedUpdate = true;
+      this.needsUpdateInternal = true;
+      this.updateIsValuableState();
+    }
   }
 
   public set value(value: number) {
-    this.screen.material.uniforms.value.value = value;
-    this.screen.material.uniformsNeedUpdate = true;
-    this.needsUpdateInternal = true;
+    if (value !== this.material.uniforms.hue.value) {
+      this.material.uniforms.value.value = value;
+      this.material.uniformsNeedUpdate = true;
+      this.needsUpdateInternal = true;
+      this.updateIsValuableState();
+    }
   }
 
   public requestUpdate(): void {
@@ -114,13 +128,18 @@ export class UIPassHSV extends UIPass {
   }
 
   public destroy(): void {
-    this.screen.material.dispose();
+    this.material.dispose();
   }
 
   public render(renderer: WebGLRenderer, texture: Texture): void {
-    this.screen.material.uniforms.map.value = texture;
-    this.screen.material.uniformsNeedUpdate = true;
-    this.screen.render(renderer);
+    this.material.uniforms.map.value = texture;
+    this.material.uniformsNeedUpdate = true;
+    this.screen.render(renderer, this.material);
     this.needsUpdateInternal = false;
+  }
+
+  private updateIsValuableState(): void {
+    this.isValuableInternal =
+      this.hue > 0 || this.saturation < 1 || this.value < 1;
   }
 }

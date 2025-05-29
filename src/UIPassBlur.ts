@@ -3,7 +3,6 @@ import { UIFullScreenQuad, UIPass } from "laymur";
 import type { Texture, WebGLRenderer } from "three";
 import {
   LinearFilter,
-  MathUtils,
   NoBlending,
   RGBAFormat,
   ShaderMaterial,
@@ -94,47 +93,44 @@ const getFragmentShader = (blurType: UIBlurType): string => {
   }
 };
 
-const DEFAULT_MAX_BLUR = 32;
+const DEFAULT_PADDING = 32;
 
 export class UIPassBlur extends UIPass {
   public readonly padding: number;
-  private readonly screen: UIFullScreenQuad;
+
+  private readonly screen = new UIFullScreenQuad();
+  private readonly material: ShaderMaterial;
   private readonly renderTarget: WebGLRenderTarget;
   private needsUpdateInternal = true;
+  private isValuableInternal = false;
 
-  constructor(
-    maxBlur = DEFAULT_MAX_BLUR,
-    blurType = UIBlurType.TRIANGLE,
-    padding = maxBlur,
-  ) {
+  constructor(padding = DEFAULT_PADDING, blurType = UIBlurType.TRIANGLE) {
     super();
     this.padding = padding;
 
-    this.screen = new UIFullScreenQuad(
-      new ShaderMaterial({
-        uniforms: UniformsUtils.merge([
-          {
-            map: { value: null },
-            radius: { value: 0 },
-            direction: { value: new Vector2(1, 0) },
-          },
-        ]),
-        vertexShader: /* glsl */ `
-          varying vec2 vUv;
-          void main() {
-            vUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }
-        `,
-        fragmentShader: getFragmentShader(blurType),
-        transparent: true,
-        blending: NoBlending,
-        depthWrite: false,
-        depthTest: false,
-        lights: false,
-        fog: false,
-      }),
-    );
+    this.material = new ShaderMaterial({
+      uniforms: UniformsUtils.merge([
+        {
+          map: { value: null },
+          radius: { value: 0 },
+          direction: { value: new Vector2(1, 0) },
+        },
+      ]),
+      vertexShader: /* glsl */ `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: getFragmentShader(blurType),
+      transparent: true,
+      blending: NoBlending,
+      depthWrite: false,
+      depthTest: false,
+      lights: false,
+      fog: false,
+    });
 
     this.renderTarget = new WebGLRenderTarget(1, 1, {
       format: RGBAFormat,
@@ -144,24 +140,29 @@ export class UIPassBlur extends UIPass {
       depthBuffer: false,
       stencilBuffer: false,
     });
+
+    this.renderTarget.texture.generateMipmaps = false;
   }
 
   public get needsUpdate(): boolean {
     return this.needsUpdateInternal;
   }
 
+  public get isValuable(): boolean {
+    return this.isValuableInternal;
+  }
+
   public get radius(): number {
-    return this.screen.material.uniforms.radius.value;
+    return this.material.uniforms.radius.value;
   }
 
   public set radius(value: number) {
-    this.screen.material.uniforms.radius.value = MathUtils.clamp(
-      value,
-      0,
-      this.padding,
-    );
-    this.screen.material.uniformsNeedUpdate = true;
-    this.needsUpdateInternal = true;
+    if (value !== this.material.uniforms.radius.value) {
+      this.material.uniforms.radius.value = value;
+      this.material.uniformsNeedUpdate = true;
+      this.needsUpdateInternal = true;
+      this.isValuableInternal = value > 0;
+    }
   }
 
   public requestUpdate(): void {
@@ -169,7 +170,7 @@ export class UIPassBlur extends UIPass {
   }
 
   public destroy(): void {
-    this.screen.material.dispose();
+    this.material.dispose();
     this.renderTarget.dispose();
   }
 
@@ -185,23 +186,21 @@ export class UIPassBlur extends UIPass {
 
     this.renderTarget.setSize(width, height);
 
-    const material = this.screen.material;
-
-    material.uniforms.map.value = texture;
-    material.uniforms.direction.value.set(0, 1 / height);
+    this.material.uniforms.map.value = texture;
+    this.material.uniforms.direction.value.set(0, 1 / height);
 
     renderer.setClearColor(0x000000, 0);
 
     renderer.setRenderTarget(this.renderTarget);
     renderer.clear(true, false, false);
-    this.screen.render(renderer);
+    this.screen.render(renderer, this.material);
 
-    material.uniforms.map.value = this.renderTarget.texture;
-    material.uniforms.direction.value.set(1 / width, 0);
+    this.material.uniforms.map.value = this.renderTarget.texture;
+    this.material.uniforms.direction.value.set(1 / width, 0);
 
     renderer.setRenderTarget(originalTarget);
     renderer.clear(true, false, false);
-    this.screen.render(renderer);
+    this.screen.render(renderer, this.material);
 
     this.needsUpdateInternal = false;
   }
