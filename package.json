@@ -1,6 +1,6 @@
 {
   "name": "laymur-passes",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "description": "",
   "scripts": {
     "clean": "rm -rf dist",
@@ -31,7 +31,7 @@
   },
   "peerDependencies": {
     "three": "^0.176.0",
-    "laymur": "^0.1.30"
+    "laymur": "^0.1.49"
   },
   "devDependencies": {
     "@rollup/plugin-node-resolve": "^16.0.1",
@@ -43,6 +43,5 @@
     "rollup": "^4.40.2",
     "rollup-plugin-typescript2": "^0.36.0",
     "typescript": "^5.8.3"
-  },
-  "dependencies": {}
+  }
 }
